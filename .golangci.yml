@@ -1,0 +1,25 @@
+version: "2"
+
+run:
+  timeout: 5m
+
+linters:
+  default: none
+  enable:
+    - errcheck
+    - govet
+    - staticcheck
+    - unused
+    - misspell
+    - ineffassign
+    - copyloopvar
+    - sloglint
+  settings:
+    errcheck:
+      check-type-assertions: true
+    sloglint:
+      no-mixed-args: true
+      key-naming-case: snake
+formatters:
+  enable:
+    - gofmt

@@ -1,0 +1,14 @@
+[Unit]
+Description=ServerPanel privileged agent (root)
+After=systemd-journald.socket
+
+[Service]
+Type=simple
+Environment=SERVERPANEL_CONFIG=/etc/serverpanel/config.yaml
+ExecStartPre=/usr/bin/install -d -o root -g panel -m 0755 /run/serverpanel
+ExecStart=/usr/local/bin/panel-agent
+Restart=always
+RestartSec=2
+
+[Install]
+WantedBy=multi-user.target

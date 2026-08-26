@@ -1,0 +1,8 @@
+# Minimal systemd-enabled base used by the smoke test. The actual package is
+# mounted at runtime so we always test freshly built artifacts.
+FROM debian:12
+RUN apt-get update && apt-get install -y --no-install-recommends \
+        systemd systemd-sysv dbus curl ca-certificates procps \
+    && rm -rf /var/lib/apt/lists/*
+STOPSIGNAL SIGRTMIN+3
+CMD ["/sbin/init"]

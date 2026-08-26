@@ -1,0 +1,21 @@
+[Unit]
+Description=ServerPanel HTTP API
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=exec
+User=panel
+Group=panel
+Environment=SERVERPANEL_CONFIG=/etc/serverpanel/config.yaml
+ExecStart=/usr/local/bin/panel-api
+Restart=on-failure
+RestartSec=3
+NoNewPrivileges=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=/var/lib/serverpanel
+PrivateTmp=true
+
+[Install]
+WantedBy=multi-user.target

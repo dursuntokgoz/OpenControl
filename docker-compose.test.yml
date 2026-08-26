@@ -1,0 +1,19 @@
+services:
+  target:
+    build:
+      context: .
+      dockerfile: test/integration/Dockerfile
+    image: serverpanel/itest-target:latest
+    container_name: sp-itest-target
+    hostname: panel-test
+    privileged: true
+    cgroup: host
+    environment:
+      SERVERPANEL_CONFIG: /etc/serverpanel/config.yaml
+      SERVERPANEL_AGENT_TOKEN: itest-token-not-secret-by-design
+    tmpfs:
+      - /run
+      - /run/lock
+    volumes:
+      - /sys/fs/cgroup:/sys/fs/cgroup:rw
+    stop_grace_period: 10s

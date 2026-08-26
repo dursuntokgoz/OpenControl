@@ -1,0 +1,25 @@
+# Build artifacts
+bin/
+dist/
+coverage.out
+*.test
+
+# Node
+node_modules/
+web/dist/
+test-results/
+playwright-report/
+blob-report/
+
+# Local data
+*.db
+*.db-wal
+*.db-shm
+data/
+.env
+
+# Editors / OS
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
