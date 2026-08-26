@@ -10,13 +10,21 @@ import (
 	"github.com/go-chi/chi/v5"
 	chimw "github.com/go-chi/chi/v5/middleware"
 
+	"github.com/dursuntokgoz/OpenControl/internal/auth"
 	"github.com/dursuntokgoz/OpenControl/internal/core"
+)
+
+const (
+	sessionCookieName = "sp_session"
+	sessionTTL        = 12 * time.Hour
 )
 
 // Options configures the HTTP router.
 type Options struct {
-	WebDist string // directory with built SPA assets; empty disables static
-	Logger  *slog.Logger
+	WebDist  string // directory with built SPA assets; empty disables static
+	Logger   *slog.Logger
+	Deps     *core.AppDeps
+	Sessions *auth.SessionManager
 }
 
 // NewRouter builds the full middleware chain and routes.
@@ -35,6 +43,43 @@ func NewRouter(opts Options) http.Handler {
 
 	r.Get("/healthz", handleHealth)
 	r.Get("/api/v1/ping", handlePing)
+
+	if opts.Deps != nil && opts.Sessions != nil {
+		loginRateLimit := NewRateLimiter(10, time.Minute)
+		r.With(RateLimit(loginRateLimit)).
+			Post("/api/v1/auth/login", newAuthHandler(authDeps{
+				sessions: opts.Sessions, users: opts.Deps.Users, audit: opts.Deps.Audit,
+			}))
+
+		r.Post("/api/v1/auth/login",
+			newAuthHandler(authDeps{
+				sessions: opts.Sessions, users: opts.Deps.Users, audit: opts.Deps.Audit,
+			}))
+
+		r.With(RequireSession(opts.Sessions, sessionCookieName), InjectUser(opts.Deps.Users)).
+			Post("/api/v1/auth/logout", handleLogout(opts.Sessions, opts.Deps.Audit))
+
+		r.With(RequireSession(opts.Sessions, sessionCookieName), InjectUser(opts.Deps.Users)).
+			Get("/api/v1/auth/me", handleMe)
+
+		r.With(RequireSession(opts.Sessions, sessionCookieName), InjectUser(opts.Deps.Users), RequireRole("admin", "reseller", "user")).
+			Post("/api/v1/auth/2fa/enroll", handleTOTPEnroll)
+
+		r.With(RequireSession(opts.Sessions, sessionCookieName), InjectUser(opts.Deps.Users), RequireCSRF(sessionCookieName)).
+			Post("/api/v1/auth/2fa/verify", handleTOTPVerify(opts.Deps.Users, opts.Deps.Audit))
+
+		r.With(RequireSession(opts.Sessions, sessionCookieName), InjectUser(opts.Deps.Users), RequireRole("admin")).
+			Get("/api/v1/audit", handleAuditLog(opts.Deps.Audit))
+
+		protected := func(r chi.Router) {
+			r.Use(RequireSession(opts.Sessions, sessionCookieName))
+			r.Use(InjectUser(opts.Deps.Users))
+			registerUserRoutes(r, opts.Deps.Users, opts.Deps.Audit)
+			registerPackageRoutes(r, opts.Deps.Packages, opts.Deps.Audit)
+			registerAccountRoutes(r, opts.Deps.Accounts, opts.Deps.Packages, opts.Deps.Audit)
+		}
+		r.Group(protected)
+	}
 
 	if opts.WebDist != "" {
 		r.Handle("/*", spaHandler(opts.WebDist))
@@ -87,7 +132,6 @@ func spaHandler(dir string) http.Handler {
 			path = "index.html"
 		}
 		if !hasFileExt(path) {
-			// Client route → serve the shell.
 			r2 := new(http.Request)
 			*r2 = *r
 			r2.URL.Path = "/"

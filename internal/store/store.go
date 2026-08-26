@@ -18,7 +18,7 @@ import (
 // DB wraps sql.DB with ServerPanel helpers.
 type DB struct {
 	*sql.DB
-	driver string
+	Driver string
 }
 
 // Open connects to the configured database without running migrations.
@@ -44,14 +44,14 @@ func Open(cfg config.Database) (*DB, error) {
 		_ = db.Close()
 		return nil, fmt.Errorf("ping %s: %w", cfg.Driver, err)
 	}
-	return &DB{DB: db, driver: cfg.Driver}, nil
+	return &DB{DB: db, Driver: cfg.Driver}, nil
 }
 
 // Migrate applies all pending embedded migrations.
 func (d *DB) Migrate(ctx context.Context) error {
 	goose.SetBaseFS(migrationsFS)
 	dialect := "sqlite3"
-	if d.driver == "postgres" {
+	if d.Driver == "postgres" {
 		dialect = "postgres"
 	}
 	if err := goose.SetDialect(dialect); err != nil {
