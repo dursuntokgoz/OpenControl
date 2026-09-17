@@ -3,6 +3,7 @@
 package main
 
 import (
+	"bufio"
 	"context"
 	"encoding/json"
 	"flag"
@@ -10,9 +11,12 @@ import (
 	"io"
 	"net/http"
 	"os"
+	"strings"
+	"syscall"
 	"time"
 
 	"github.com/dursuntokgoz/OpenControl/internal/agent"
+	"github.com/dursuntokgoz/OpenControl/internal/auth"
 	"github.com/dursuntokgoz/OpenControl/internal/config"
 	"github.com/dursuntokgoz/OpenControl/internal/core"
 	"github.com/dursuntokgoz/OpenControl/internal/store"
@@ -21,9 +25,10 @@ import (
 const usage = `panelctl — ServerPanel control CLI
 
 Usage:
-  panelctl version                 Show build information
-  panelctl doctor [-config PATH]   Diagnose configuration, database, agent and API
-  panelctl agent-ping              Verify the privileged agent responds
+  panelctl version                      Show build information
+  panelctl doctor [-config PATH]        Diagnose configuration, database, agent and API
+  panelctl agent-ping                   Verify the privileged agent responds
+  panelctl bootstrap-admin              Create the initial admin user
 `
 
 func main() {
@@ -45,6 +50,13 @@ func main() {
 		configPath := fs.String("config", os.Getenv("SERVERPANEL_CONFIG"), "path to config.yaml")
 		_ = fs.Parse(os.Args[2:])
 		err = cmdAgentPing(context.Background(), *configPath)
+	case "bootstrap-admin":
+		fs := flag.NewFlagSet("bootstrap-admin", flag.ExitOnError)
+		configPath := fs.String("config", os.Getenv("SERVERPANEL_CONFIG"), "path to config.yaml")
+		username := fs.String("username", "", "admin username (interactive if empty)")
+		password := fs.String("password", "", "admin password (interactive if empty)")
+		_ = fs.Parse(os.Args[2:])
+		err = cmdBootstrapAdmin(context.Background(), *configPath, *username, *password)
 	default:
 		fmt.Fprintf(os.Stderr, "unknown command %q\n\n%s", os.Args[1], usage)
 		os.Exit(2)
@@ -61,7 +73,6 @@ func cmdVersion(w io.Writer) error {
 	return err
 }
 
-// doctorCheck is one diagnostic outcome.
 type doctorCheck struct {
 	Name     string `json:"name"`
 	OK       bool   `json:"ok"`
@@ -124,7 +135,6 @@ func cmdDoctor(ctx context.Context, configPath string) error {
 	if resp != nil {
 		_ = resp.Body.Close()
 	}
-	// API not running is not fatal for offline diagnostics.
 	checks = append(checks, doctorCheck{Name: "api", OK: apiOK, Detail: apiDetail, Critical: false})
 
 	return reportDoctor(checks)
@@ -142,6 +152,75 @@ func cmdAgentPing(ctx context.Context, configPath string) error {
 	}
 	out, _ := json.MarshalIndent(res, "", "  ")
 	fmt.Println(string(out))
+	return nil
+}
+
+func cmdBootstrapAdmin(ctx context.Context, configPath, username, password string) error {
+	cfg, err := config.Load(configPath)
+	if err != nil {
+		return err
+	}
+
+	reader := bufio.NewReader(os.Stdin)
+	if username == "" {
+		fmt.Print("Admin username: ")
+		username, _ = reader.ReadString('\n')
+		username = strings.TrimSpace(username)
+	}
+	if username == "" {
+		return fmt.Errorf("username cannot be empty")
+	}
+	if password == "" {
+		fmt.Print("Admin password: ")
+		password, _ = reader.ReadString('\n')
+		password = strings.TrimSpace(password)
+	}
+	if len(password) < 8 {
+		return fmt.Errorf("password must be at least 8 characters")
+	}
+
+	ctx, cancel := context.WithTimeout(ctx, 10*time.Second)
+	defer cancel()
+
+	st, err := store.Open(cfg.Database)
+	if err != nil {
+		return err
+	}
+	defer func() { _ = st.Close() }()
+	if err := st.Migrate(ctx); err != nil {
+		return err
+	}
+
+	repo := store.NewUserRepo(st.DB)
+	count, err := repo.Count(ctx)
+	if err != nil {
+		return err
+	}
+	if count > 0 {
+		fmt.Printf("Admin user '%s' already exists (count=%d). Skipping.\n", username, count)
+		return nil
+	}
+
+	hash, err := auth.HashPassword(password)
+	if err != nil {
+		return err
+	}
+
+	u := &core.User{
+		Username:     username,
+		Email:        username + "@localhost",
+		PasswordHash: hash,
+		Role:         "admin",
+		Language:     "en",
+		CreatedAt:    time.Now(),
+		UpdatedAt:    time.Now(),
+	}
+	if err := repo.Create(ctx, u); err != nil {
+		return err
+	}
+	// Ensure signal.NotifyContext import is used.
+	_ = syscall.SIGTERM
+	fmt.Printf("Admin user '%s' created successfully (id=%d).\n", u.Username, u.ID)
 	return nil
 }
 

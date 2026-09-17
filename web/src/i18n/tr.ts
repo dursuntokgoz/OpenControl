@@ -13,4 +13,8 @@ export const tr: Record<keyof typeof en, string> = {
   'dash.welcomeUser': 'Hosting panelinize hoş geldiniz',
   'dash.welcomeAdmin': 'Sunucu yönetim konsolu',
   'dash.comingSoon': 'Bu bölümün modülleri yaklaşan sürümlerde teslim edilecek.',
+  'login.username': 'Kullanıcı Adı',
+  'login.password': 'Şifre',
+  'login.submit': 'Giriş Yap',
+  'login.submitting': 'Giriş yapılıyor…',
 }

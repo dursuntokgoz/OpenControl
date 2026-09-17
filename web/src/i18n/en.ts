@@ -12,6 +12,10 @@ export const en = {
   'dash.welcomeUser': 'Welcome to your hosting panel',
   'dash.welcomeAdmin': 'Server administration console',
   'dash.comingSoon': 'Modules for this section are delivered in upcoming releases.',
+  'login.username': 'Username',
+  'login.password': 'Password',
+  'login.submit': 'Sign in',
+  'login.submitting': 'Signing in…',
 } as const
 
 export type MessageKey = keyof typeof en

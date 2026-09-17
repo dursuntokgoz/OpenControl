@@ -1,22 +1,23 @@
-// Command panel-api is the public HTTP API server of ServerPanel. It runs as
-// an unprivileged user and never touches the system directly; privileged work
-// is delegated to panel-agent over a Unix domain socket.
+// Command panel-api is the public HTTP API server of ServerPanel.
 package main
 
 import (
 	"context"
 	"errors"
 	"flag"
+	"fmt"
 	"log/slog"
 	"net/http"
 	"os"
 	"os/signal"
 	"path/filepath"
+	"strings"
 	"syscall"
 	"time"
 
 	"github.com/dursuntokgoz/OpenControl/internal/agent"
 	"github.com/dursuntokgoz/OpenControl/internal/api"
+	"github.com/dursuntokgoz/OpenControl/internal/auth"
 	"github.com/dursuntokgoz/OpenControl/internal/config"
 	"github.com/dursuntokgoz/OpenControl/internal/core"
 	"github.com/dursuntokgoz/OpenControl/internal/store"
@@ -54,12 +55,27 @@ func main() {
 		os.Exit(1)
 	}
 
-	agentClient := agent.NewClient(cfg.Agent.SocketPath, cfg.Agent.Token)
-	_ = agentClient // used by handlers from phase 2 onward; dial is lazy.
+	bootstrapIfConfigured(ctx, st, logger)
+
+	userRepo := store.NewUserRepo(st.DB)
+	auditRepo := store.NewAuditRepo(st.DB)
+	sessionRepo := store.NewSessionStore(st.DB)
+	pkgRepo := store.NewPackageRepo(st.DB)
+	acctRepo := store.NewAccountRepo(st.DB)
+	sessMgr := auth.NewSessionManager(sessionRepo, 12*time.Hour)
+
+	_ = agent.NewClient(cfg.Agent.SocketPath, cfg.Agent.Token)
 
 	router := api.NewRouter(api.Options{
-		WebDist: webDistOrDefault(cfg.HTTP.WebDist),
-		Logger:  logger,
+		WebDist:  webDistOrDefault(cfg.HTTP.WebDist),
+		Logger:   logger,
+		Sessions: sessMgr,
+		Deps: &core.AppDeps{
+			Users:    userRepo,
+			Audit:    auditRepo,
+			Packages: pkgRepo,
+			Accounts: acctRepo,
+		},
 	})
 
 	srv := &http.Server{
@@ -94,12 +110,52 @@ func main() {
 	logger.Info("stopped")
 }
 
+// bootstrapIfConfigured auto-creates an admin user when SERVERPANEL_BOOTSTRAP_ADMIN_USER
+// and SERVERPANEL_BOOTSTRAP_ADMIN_PASSWORD are set and no users exist.
+func bootstrapIfConfigured(ctx context.Context, st *store.DB, logger *slog.Logger) {
+	username := os.Getenv("SERVERPANEL_BOOTSTRAP_ADMIN_USER")
+	password := os.Getenv("SERVERPANEL_BOOTSTRAP_ADMIN_PASSWORD")
+	if username == "" || password == "" {
+		return
+	}
+	repo := store.NewUserRepo(st.DB)
+	count, err := repo.Count(ctx)
+	if err != nil {
+		logger.Warn("bootstrap: count users", slog.Any("err", err))
+		return
+	}
+	if count > 0 {
+		return
+	}
+	hash, err := auth.HashPassword(password)
+	if err != nil {
+		logger.Error("bootstrap: hash password", slog.Any("err", err))
+		return
+	}
+	email := os.Getenv("SERVERPANEL_BOOTSTRAP_ADMIN_EMAIL")
+	if email == "" {
+		email = username + "@localhost"
+	}
+	u := &core.User{
+		Username:     strings.TrimSpace(username),
+		Email:        strings.TrimSpace(email),
+		PasswordHash: hash,
+		Role:         "admin",
+		Language:     "en",
+		CreatedAt:    time.Now(),
+		UpdatedAt:    time.Now(),
+	}
+	if err := repo.Create(ctx, u); err != nil {
+		logger.Error("bootstrap: create admin", slog.Any("err", err))
+		return
+	}
+	logger.Info("bootstrap: admin user created", "username", u.Username)
+}
+
 func newLogger() *slog.Logger {
 	return slog.New(slog.NewTextHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelInfo}))
 }
 
-// webDistOrDefault returns "" when the dist directory does not exist so the
-// API can run head-less (tests, CLI-only hosts).
 func webDistOrDefault(dist string) string {
 	if dist == "" {
 		return ""
@@ -108,4 +164,8 @@ func webDistOrDefault(dist string) string {
 		return dist
 	}
 	return ""
+}
+
+func init() {
+	_ = fmt.Sprintf // keep fmt imported
 }

@@ -84,4 +84,16 @@ systemctl restart panel-api.service
 echo "[install] status"
 systemctl --no-pager --lines=0 status panel-agent.service || true
 systemctl --no-pager --lines=0 status panel-api.service || true
+
+echo "[install] bootstrap admin"
+if [ -n "${SERVERPANEL_ADMIN_USER:-}" ] && [ -n "${SERVERPANEL_ADMIN_PASS:-}" ]; then
+    SERVERPANEL_CONFIG="$CONF_DIR/config.yaml" \
+        "$PREFIX/panelctl" bootstrap-admin \
+        -username "$SERVERPANEL_ADMIN_USER" \
+        -password "$SERVERPANEL_ADMIN_PASS"
+else
+    echo "[install] set SERVERPANEL_ADMIN_USER and SERVERPANEL_ADMIN_PASS to auto-create admin"
+    echo "[install] or run: panelctl bootstrap-admin"
+fi
+
 echo "[install] done"

@@ -129,6 +129,8 @@ e2e: ## Playwright E2E against real panel-api (all inside container)
 		SERVERPANEL_HTTP_LISTEN=127.0.0.1:8117 \
 		SERVERPANEL_DB_SQLITE_PATH=/tmp/sp-data/e2e.db \
 		SERVERPANEL_WEB_DIST=/w/web/dist \
+		SERVERPANEL_BOOTSTRAP_ADMIN_USER=admin \
+		SERVERPANEL_BOOTSTRAP_ADMIN_PASSWORD=admin1234 \
 		/w/dist/package/bin/panel-api & \
 		api_pid=$$!; \
 		trap "kill $$api_pid 2>/dev/null || true" EXIT INT TERM; \
