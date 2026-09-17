@@ -18,15 +18,18 @@ Status: `todo` / `doing` / `blocked` / `done`
 | P0-11 | packaging/systemd units + install.sh v1 + smoke target | done | smoke: clean debian:12 install → SMOKE_OK |
 | P0-12 | GitHub Actions CI workflow | done | Workflow mirrors verify chain |
 
-## Phase 1 — Auth, RBAC, Accounts, Audit
+## Phase 1 — Auth, RBAC, Accounts, Audit  ✅ COMPLETE (verify exit=0, commit cd26140)
 | ID | Title | Status | Acceptance |
 |----|-------|--------|------------|
-| P1-01 | Store layer: open SQLite/Postgres, goose migrations | todo | Migration up/down tests pass |
-| P1-02 | Domain models: User, Account, Package, Session, AuditLog | todo | Models + validation tests |
-| P1-03 | argon2id password hashing service | todo | Hash/verify + vectors tests |
-| P1-04 | Session management (create/rotate/expire) + secure cookies | todo | Unit + integration tests |
-| P1-05 | TOTP 2FA enrollment + verification | todo | RFC vectors test passes |
-| P1-06 | RBAC middleware admin/reseller/user | todo | Authorization matrix tests |
-| P1-07 | Account CRUD API + handlers | todo | Integration tests via HTTP |
-| P1-08 | Audit log writes on every mutation | todo | Audit assertions in tests |
-| P1-09 | Rate limiting + CSRF + security headers middleware | todo | Middleware tests |
+| P1-01 | Store layer: open SQLite/Postgres, goose migrations | done | Migration up/down tests pass |
+| P1-02 | Domain models: User, Account, Package, Session, AuditLog | done | Models + validation tests |
+| P1-03 | argon2id password hashing service | done | Hash/verify + vectors tests |
+| P1-04 | Session management (create/rotate/expire) + secure cookies | done | Unit + integration tests |
+| P1-05 | TOTP 2FA enrollment + verification | done | RFC vectors test passes |
+| P1-06 | RBAC middleware admin/reseller/user | done | Authorization matrix tests |
+| P1-07 | Account CRUD API + handlers | done | Integration tests via HTTP |
+| P1-08 | Audit log writes on every mutation | done | Audit assertions in tests |
+| P1-09 | Rate limiting + CSRF + security headers middleware | done | Middleware tests |
+| P1-10 | Bootstrap admin (env + panelctl bootstrap-admin + install.sh) | done | E2E login as bootstrapped admin |
+| P1-11 | Web login flow (LoginPage, AuthProvider, route guards) | done | E2E 7/7 incl. redirect + wrong-password |
+| P1-12 | UI screenshots for docs | done | docs/screenshots/01-05.png in repo |
