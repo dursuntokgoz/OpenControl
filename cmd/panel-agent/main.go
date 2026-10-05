@@ -14,6 +14,7 @@ import (
 	"github.com/dursuntokgoz/OpenControl/internal/agent"
 	"github.com/dursuntokgoz/OpenControl/internal/config"
 	"github.com/dursuntokgoz/OpenControl/internal/core"
+	"github.com/dursuntokgoz/OpenControl/internal/providers"
 )
 
 func main() {
@@ -44,7 +45,8 @@ func main() {
 	}
 
 	srv := agent.NewServer(socketPath, token, logger)
-	agent.RegisterBuiltinOps(srv)
+	svc := &providers.SystemdServiceControl{}
+	agent.RegisterBuiltinOps(srv, svc)
 
 	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
 	defer stop()

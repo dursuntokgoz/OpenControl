@@ -3,7 +3,11 @@
 // registered in the server's whitelist before the agent will execute it.
 package agent
 
-import "encoding/json"
+import (
+	"encoding/json"
+
+	"github.com/dursuntokgoz/OpenControl/internal/providers"
+)
 
 // Request is a single operation request.
 type Request struct {
@@ -52,4 +56,18 @@ type SysInfoResult struct {
 	Load1         float64 `json:"load1"`
 	UptimeSec     uint64  `json:"uptimeSec"`
 	DiskRootPct   float64 `json:"diskRootPct"`
+}
+
+// ServiceListParams requests statuses of allowlisted units (empty = all).
+type ServiceListParams struct{}
+
+// ServiceListResult carries statuses for allowlisted units.
+type ServiceListResult struct {
+	Services []providers.ServiceStatus `json:"services"`
+}
+
+// ServiceActionParams performs one allowlisted action on one allowlisted unit.
+type ServiceActionParams struct {
+	Unit   string `json:"unit"`
+	Action string `json:"action"`
 }

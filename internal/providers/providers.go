@@ -18,18 +18,9 @@ const (
 
 // ServiceControl manages systemd units via the privileged agent.
 type ServiceControl interface {
-	// Start starts the unit and waits until it is active.
-	Start(ctx context.Context, unit string) error
-	// Stop stops the unit.
-	Stop(ctx context.Context, unit string) error
-	// Restart restarts the unit.
-	Restart(ctx context.Context, unit string) error
-	// Enable schedules the unit to start on boot.
-	Enable(ctx context.Context, unit string) error
-	// Disable removes the unit from boot targets.
-	Disable(ctx context.Context, unit string) error
-	// Status returns coarse-grained state plus the last log lines.
-	Status(ctx context.Context, unit string) (ServiceState, []string, error)
+	List(ctx context.Context) ([]ServiceStatus, error)
+	Status(ctx context.Context, unit ServiceUnit) (ServiceStatus, error)
+	Apply(ctx context.Context, params ServiceParams) error
 }
 
 // WebServerProvider abstracts nginx/Apache configuration management.

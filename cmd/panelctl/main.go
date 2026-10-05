@@ -29,6 +29,12 @@ Usage:
   panelctl doctor [-config PATH]        Diagnose configuration, database, agent and API
   panelctl agent-ping                   Verify the privileged agent responds
   panelctl bootstrap-admin              Create the initial admin user
+  panelctl service list                 List status of managed services
+  panelctl service status <unit>        Show status of a specific service
+  panelctl service restart <unit>       Restart a service
+  panelctl service start <unit>         Start a service
+  panelctl service stop <unit>          Stop a service
+  panelctl service enable <unit>        Enable a service at boot
 `
 
 func main() {
@@ -57,6 +63,15 @@ func main() {
 		password := fs.String("password", "", "admin password (interactive if empty)")
 		_ = fs.Parse(os.Args[2:])
 		err = cmdBootstrapAdmin(context.Background(), *configPath, *username, *password)
+	case "service":
+		if len(os.Args) < 3 {
+			fmt.Fprint(os.Stderr, usage)
+			os.Exit(2)
+		}
+		fs := flag.NewFlagSet("service", flag.ExitOnError)
+		configPath := fs.String("config", os.Getenv("SERVERPANEL_CONFIG"), "path to config.yaml")
+		_ = fs.Parse(os.Args[3:])
+		err = cmdService(context.Background(), *configPath, os.Args[2], fs.Args())
 	default:
 		fmt.Fprintf(os.Stderr, "unknown command %q\n\n%s", os.Args[1], usage)
 		os.Exit(2)
@@ -258,4 +273,56 @@ func statusDetail(err error) string {
 		return "ok"
 	}
 	return err.Error()
+}
+
+func cmdService(ctx context.Context, configPath, subcmd string, args []string) error {
+	cfg, err := config.Load(configPath)
+	if err != nil {
+		return err
+	}
+	client := agent.NewClient(cfg.Agent.SocketPath, cfg.Agent.Token)
+
+	switch subcmd {
+	case "list":
+		var res agent.ServiceListResult
+		if err := client.Call(ctx, agent.OpServiceList, agent.ServiceListParams{}, &res); err != nil {
+			return err
+		}
+		for _, s := range res.Services {
+			fmt.Printf("%s  load=%s active=%s sub=%s unitfile=%s\n",
+				s.Unit, s.LoadState, s.ActiveState, s.SubState, s.UnitFileState)
+		}
+		return nil
+
+	case "status":
+		if len(args) != 1 {
+			return fmt.Errorf("usage: panelctl service status <unit>")
+		}
+		var res agent.ServiceListResult
+		if err := client.Call(ctx, agent.OpServiceList, agent.ServiceListParams{}, &res); err != nil {
+			return err
+		}
+		for _, s := range res.Services {
+			if string(s.Unit) == args[0] {
+				fmt.Printf("%s  load=%s active=%s sub=%s unitfile=%s\n",
+					s.Unit, s.LoadState, s.ActiveState, s.SubState, s.UnitFileState)
+				return nil
+			}
+		}
+		return fmt.Errorf("service unit %q not found or not allowlisted", args[0])
+
+	case "restart", "start", "stop", "enable":
+		if len(args) != 1 {
+			return fmt.Errorf("usage: panelctl service %s <unit>", subcmd)
+		}
+		var out map[string]string
+		if err := client.Call(ctx, agent.OpServiceAction, agent.ServiceActionParams{Unit: args[0], Action: subcmd}, &out); err != nil {
+			return err
+		}
+		fmt.Printf("%s %s: %s\n", subcmd, args[0], out["status"])
+		return nil
+
+	default:
+		return fmt.Errorf("unknown service command %q", subcmd)
+	}
 }

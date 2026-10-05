@@ -7,6 +7,7 @@ import (
 	"os"
 	"runtime"
 
+	"github.com/dursuntokgoz/OpenControl/internal/providers"
 	"github.com/shirou/gopsutil/v4/cpu"
 	"github.com/shirou/gopsutil/v4/disk"
 	"github.com/shirou/gopsutil/v4/host"
@@ -16,14 +17,37 @@ import (
 
 // Whitelisted operation names.
 const (
-	OpPing    = "ping"
-	OpSysInfo = "sysinfo"
+	OpPing          = "ping"
+	OpSysInfo       = "sysinfo"
+	OpServiceList   = "service.list"
+	OpServiceAction = "service.action"
 )
 
 // RegisterBuiltinOps registers the standard read-only operations.
-func RegisterBuiltinOps(s *Server) {
+func RegisterBuiltinOps(s *Server, svc providers.ServiceControl) {
 	s.Register(OpPing, handlePing)
 	s.Register(OpSysInfo, handleSysInfo)
+	s.Register(OpServiceList, func(ctx context.Context, params json.RawMessage) (any, error) {
+		services, err := svc.List(ctx)
+		if err != nil {
+			return nil, err
+		}
+		return ServiceListResult{Services: services}, nil
+	})
+	s.Register(OpServiceAction, func(ctx context.Context, params json.RawMessage) (any, error) {
+		var p ServiceActionParams
+		if len(params) > 0 {
+			if err := json.Unmarshal(params, &p); err != nil {
+				return nil, err
+			}
+		}
+		unit := providers.ServiceUnit(p.Unit)
+		action := providers.ServiceAction(p.Action)
+		if err := svc.Apply(ctx, providers.ServiceParams{Unit: unit, Action: action}); err != nil {
+			return nil, err
+		}
+		return map[string]string{"status": "ok"}, nil
+	})
 }
 
 func handlePing(_ context.Context, _ json.RawMessage) (any, error) {
