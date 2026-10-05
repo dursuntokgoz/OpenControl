@@ -14,6 +14,14 @@ architecture rationale.
 - `panelctl` — operator CLI (install bootstrap, diagnostics).
 - `web/` — React 18 + TypeScript + Vite + Tailwind frontends (`/` user, `/admin` admin).
 
+## Screenshots
+
+- ![Login](docs/screenshots/01-login-page.png)
+- ![Login error](docs/screenshots/02-login-error.png)
+- ![User dashboard](docs/screenshots/03-user-dashboard.png)
+- ![Admin dashboard](docs/screenshots/04-admin-dashboard.png)
+- ![Admin Turkish](docs/screenshots/05-admin-turkish.png)
+
 ## Development
 
 ```sh

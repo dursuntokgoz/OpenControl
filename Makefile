@@ -140,7 +140,12 @@ e2e: ## Playwright E2E against real panel-api (all inside container)
 			sleep 1; \
 		done; \
 		[ -n "$$ok" ] || { echo "panel-api did not become healthy"; exit 1; }; \
-		BASE_URL=http://127.0.0.1:8117 npx --prefix test/e2e playwright test --config test/e2e/playwright.config.ts'
+		BASE_URL=http://127.0.0.1:8117 npx --prefix test/e2e playwright test --config test/e2e/playwright.config.ts; \
+		screenshot_status=$$?; \
+		if [ $$screenshot_status -eq 0 ]; then \
+			BASE_URL=http://127.0.0.1:8117 node test/e2e/screenshots.cjs || true; \
+		fi; \
+		exit $$screenshot_status'
 
 smoke: ## Clean-container install.sh smoke test (Debian + systemd)
 	$(MAKE) build-linux
